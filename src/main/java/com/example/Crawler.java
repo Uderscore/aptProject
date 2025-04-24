@@ -5,8 +5,8 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.net.URI;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,42 +14,46 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Crawler {
 
     private static final int MAX_DEPTH = 3;
-    private static final int THREAD_COUNT = 100;
-
-    // Thread-safe data structures
+    private static ExecutorService executorService;
     private static final Set<String> visitedUrls = ConcurrentHashMap.newKeySet();
-    private static final List<String[]> visitedUrlsList = Collections.synchronizedList(new ArrayList<>());
-    private static final ExecutorService executorService = Executors.newFixedThreadPool(THREAD_COUNT);
     private static final AtomicInteger activeTasks = new AtomicInteger(0);
+    private static final Map<String, Set<String>> disallowedPathsByDomain = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
-        String seedUrl = "https://en.wikipedia.org/wiki/Web_crawler";
+        int threadCount = args.length > 0 ? Integer.parseInt(args[0]) : 50;
+        executorService = Executors.newFixedThreadPool(threadCount);
 
-        activeTasks.incrementAndGet(); // start tracking the root task
-        crawl(seedUrl, 1);
+        List<String> seeds = loadUrlsFromFile("seeds.txt");
+        visitedUrls.addAll(loadUrlsFromFile("visited.txt"));
 
-        // Wait until all crawling tasks are completed
+        for (String seed : seeds) {
+            String normalized = normalizeUrl(seed);
+            if (!visitedUrls.contains(normalized)) {
+                activeTasks.incrementAndGet();
+                crawl(normalized, 1);
+            }
+        }
+
         while (activeTasks.get() > 0) {
-            try {
-                Thread.sleep(100); // Wait a short while before checking again
-            } catch (InterruptedException e) {
+            try { Thread.sleep(100); } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
 
-        shutdownExecutorService();
-        exportDataToCsv("Urls.txt");
+        executorService.shutdown();
+        System.out.println("Crawling complete.");
     }
 
     private static void crawl(String url, int depth) {
         String normalizedUrl = normalizeUrl(url);
-        if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
-            System.err.println("Skipping invalid URL: " + normalizedUrl);
+
+        if (depth > MAX_DEPTH || !normalizedUrl.startsWith("http") || !visitedUrls.add(normalizedUrl)) {
             activeTasks.decrementAndGet();
             return;
         }
 
-        if (depth > MAX_DEPTH || !visitedUrls.add(normalizedUrl)) {
+        if (!isAllowedByRobotsTxt(normalizedUrl)) {
+            System.out.println("Blocked by robots.txt: " + normalizedUrl);
             activeTasks.decrementAndGet();
             return;
         }
@@ -57,7 +61,7 @@ public class Crawler {
         executorService.submit(() -> {
             try {
                 System.out.println("Crawling: " + normalizedUrl);
-                visitedUrlsList.add(new String[]{normalizedUrl});
+                saveUrlToFile("visited.txt", normalizedUrl);
 
                 Document doc = retrieveHTML(normalizedUrl);
                 if (doc != null) {
@@ -71,56 +75,85 @@ public class Crawler {
                     }
                 }
             } finally {
-                activeTasks.decrementAndGet(); // task complete
+                activeTasks.decrementAndGet();
             }
         });
     }
 
     private static Document retrieveHTML(String url) {
         try {
-            Document doc = Jsoup.connect(url).get();
-            System.out.println("Page Title: " + doc.title());
-            return doc;
+            return Jsoup.connect(url).userAgent("Mozilla/5.0").get();
         } catch (IOException e) {
-            System.err.println("Unable to fetch HTML of: " + url);
+            System.err.println("Failed to fetch: " + url);
             return null;
         }
     }
 
     private static String normalizeUrl(String url) {
         try {
-            java.net.URI uri = new java.net.URI(url).normalize();
-            String normalized = uri.getScheme() + "://" + uri.getHost() + uri.getPath();
-            return normalized.endsWith("/") ? normalized.substring(0, normalized.length() - 1) : normalized;
+            URI uri = new URI(url);
+            String scheme = uri.getScheme() == null ? "http" : uri.getScheme().toLowerCase();
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
+            if (host.startsWith("www.")) host = host.substring(4);
+            String path = uri.getPath() == null ? "" : uri.getPath();
+            if (path.endsWith("/") && path.length() > 1) path = path.substring(0, path.length() - 1);
+            return scheme + "://" + host + path;
         } catch (Exception e) {
             return url;
         }
     }
 
-    private static void exportDataToCsv(String filePath) {
-        try (FileWriter writer = new FileWriter(filePath)) {
-            writer.append("URL\n");
-            synchronized (visitedUrlsList) {
-                for (String[] row : visitedUrlsList) {
-                    writer.append(String.join(",", row)).append("\n");
-                }
+    private static boolean isAllowedByRobotsTxt(String url) {
+        try {
+            URI uri = new URI(url);
+            String host = uri.getHost();
+            String robotsUrl = uri.getScheme() + "://" + host + "/robots.txt";
+
+            if (!disallowedPathsByDomain.containsKey(host)) {
+                Set<String> disallowed = new HashSet<>();
+                try {
+                    Document doc = Jsoup.connect(robotsUrl).ignoreContentType(true).get();
+                    String[] lines = doc.body().text().split("User-agent: \\*");
+                    if (lines.length > 1) {
+                        for (String line : lines[1].split("\n")) {
+                            if (line.toLowerCase().startsWith("disallow:")) {
+                                disallowed.add(line.split(":", 2)[1].trim());
+                            }
+                        }
+                    }
+                } catch (IOException ignored) {}
+                disallowedPathsByDomain.put(host, disallowed);
             }
-            System.out.println("Data saved to " + filePath);
+
+            String path = uri.getPath();
+            for (String disallowed : disallowedPathsByDomain.get(host)) {
+                if (path.startsWith(disallowed)) return false;
+            }
+            return true;
+
+        } catch (Exception e) {
+            return true; // default to allow
+        }
+    }
+
+    private static void saveUrlToFile(String filePath, String url) {
+        try (FileWriter writer = new FileWriter(filePath, true)) {
+            writer.write(url + "\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static void shutdownExecutorService() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-                System.out.println("Forced shutdown due to timeout.");
+    private static List<String> loadUrlsFromFile(String filePath) {
+        List<String> urls = new ArrayList<>();
+        try (Scanner scanner = new Scanner(new File(filePath))) {
+            while (scanner.hasNextLine()) {
+                String url = scanner.nextLine().trim();
+                if (!url.isEmpty()) urls.add(url);
             }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-            Thread.currentThread().interrupt();
+        } catch (IOException e) {
+            // File not found is okay on first run
         }
+        return urls;
     }
 }
