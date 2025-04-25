@@ -1,2 +1,11 @@
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\com\example\Crawler.java
 C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\com\example\App.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\crawler\Crawler.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\DocumentProcessor.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\IndexManager.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\models\Document.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\models\InvertedIndexEntry.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\models\Term.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\MongoIndexer.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\Tokenizer.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\utils\MongoConnector.java
+C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\org\example\Indexer.java

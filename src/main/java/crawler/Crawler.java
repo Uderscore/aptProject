@@ -1,4 +1,4 @@
-package com.example;
+package crawler;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Crawler {
 
-    private static final int MAX_DEPTH = 3;
+    private static final int MAX_DEPTH = 2;
     private static ExecutorService executorService;
     private static final Set<String> visitedUrls = ConcurrentHashMap.newKeySet();
     private static final AtomicInteger activeTasks = new AtomicInteger(0);

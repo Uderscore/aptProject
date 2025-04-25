@@ -1,2 +1,12 @@
+org\example\Indexer.class
+indexer\models\Document.class
+indexer\models\InvertedIndexEntry.class
+indexer\models\Term.class
 com\example\App.class
-com\example\Crawler.class
+indexer\MongoIndexer.class
+indexer\IndexManager.class
+indexer\models\DocumentTermInfo.class
+indexer\utils\MongoConnector.class
+indexer\DocumentProcessor.class
+indexer\Tokenizer.class
+crawler\Crawler.class
