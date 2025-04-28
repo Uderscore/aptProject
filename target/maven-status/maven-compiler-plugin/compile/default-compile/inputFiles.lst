@@ -1,11 +1,21 @@
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\com\example\App.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\crawler\Crawler.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\DocumentProcessor.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\IndexManager.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\models\Document.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\models\InvertedIndexEntry.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\models\Term.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\MongoIndexer.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\Tokenizer.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\indexer\utils\MongoConnector.java
-C:\Users\MAZEN\Desktop\dwdwdw\aptProject\src\main\java\org\example\Indexer.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\com\example\App.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\crawler\Crawler.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\DocumentProcessor.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\IndexManager.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\models\Document.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\models\InvertedIndexEntry.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\models\Term.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\MongoIndexer.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\Tokenizer.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\indexer\utils\MongoConnector.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\org\example\Indexer.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\phraseSearching\KMPMatcher.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\phraseSearching\N_main.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\phraseSearching\PhraseQueryParser.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\phraseSearching\PhraseSearch.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\phraseSearching\PhraseSearchHandler .java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\phraseSearching\PhraseSearchTask.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\queryProcessor\QueryProcessor.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\queryProcessor\StanfordLemmatizerImpl.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\queryProcessor\Stemmer.java
+D:\Study\Y2\S2\Advanced Programming Techniques\aptProject\src\main\java\utilities\Constants.java
