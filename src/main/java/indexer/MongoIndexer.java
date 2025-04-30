@@ -51,19 +51,18 @@ public class MongoIndexer {
         Map<String, Term> terms = new HashMap<>();
 
         // Process title (higher weight)
-        processText(doc.getTitle(), terms, 2.0);
+        processText(doc.getTitle(), terms, TextSection.TITLE);
         System.out.println("Processing title done");
 
         // Process headings (medium weight)
-        processText(doc.getHeadings(), terms, 1.5);
+        processText(doc.getHeadings(), terms, TextSection.HEADINGS);
         System.out.println("Processing headings done");
 
         // Process body (normal weight)
-        processText(doc.getBody(), terms, 1.0);
+        processText(doc.getBody(), terms, TextSection.BODY);
         System.out.println("Processing body done");
 
         // Update inverted index in MongoDB
-        // I know maybe it seems a bit complicated, so If you want to understand look at the data structure & our DB
         for (Map.Entry<String, Term> entry : terms.entrySet()) {
             String term = entry.getKey();
             Term termData = entry.getValue();
@@ -77,6 +76,9 @@ public class MongoIndexer {
                                     .append("tf_title", termData.getTfTitle())
                                     .append("tf_headings", termData.getTfHeadings())
                                     .append("tf_body", termData.getTfBody())
+                                    .append("title_positions", termData.getTitlePositions())
+                                    .append("headings_positions", termData.getHeadingsPositions())
+                                    .append("body_positions", termData.getBodyPositions())
                     ),
                     inc("df", 1)
             );
@@ -92,30 +94,33 @@ public class MongoIndexer {
         System.out.println("Document indexed: " + doc.getUrl());
     }
 
-    private void processText(String text, Map<String, Term> terms, double weight) {
+    private enum TextSection {
+        TITLE, HEADINGS, BODY
+    }
+
+    private void processText(String text, Map<String, Term> terms, TextSection section) {
         List<String> tokens = tokenizer.tokenize(text);
 
-        for (String token : tokens) {
+        for (int position = 0; position < tokens.size(); position++) {
+            String token = tokens.get(position);
             Term term = terms.getOrDefault(token, new Term(token));
 
-            if (weight == 2.0) {
-                term.incrementTfTitle();
-            } else if (weight == 1.5) {
-                term.incrementTfHeadings();
-            } else {
-                term.incrementTfBody();
+            switch (section) {
+                case TITLE:
+                    term.incrementTfTitle(position);
+                    break;
+                case HEADINGS:
+                    term.incrementTfHeadings(position);
+                    break;
+                case BODY:
+                    term.incrementTfBody(position);
+                    break;
             }
 
             terms.put(token, term);
         }
     }
 
-    /*
-     * This method retrieves the inverted index entry for a given term.
-     * It returns an InvertedIndexEntry object containing the term and its associated documents.
-     * I think this will be useful for Kamal
-     * Note: I will not use it in the current version of the code, but I will keep it for future use (the actual search)
-     */
     public InvertedIndexEntry getDocumentsForTerm(String term) {
         org.bson.Document termDoc = termsCollection.find(eq("term", term)).first();
         if (termDoc == null) {
@@ -131,7 +136,10 @@ public class MongoIndexer {
                     docEntry.getString("url"),
                     docEntry.getDouble("tf_title"),
                     docEntry.getDouble("tf_headings"),
-                    docEntry.getDouble("tf_body")
+                    docEntry.getDouble("tf_body"),
+                    docEntry.getList("title_positions", Integer.class),
+                    docEntry.getList("headings_positions", Integer.class),
+                    docEntry.getList("body_positions", Integer.class)
             );
         }
 
