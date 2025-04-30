@@ -1,30 +1,46 @@
-package com.example;
+package crawler;
 
+import com.mongodb.client.*;
+import org.bson.Document;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.mongodb.client.model.Filters.eq;
+
 public class Crawler {
 
-    private static final int MAX_DEPTH = 3;
+    private static final int MAX_DEPTH = 2;
     private static ExecutorService executorService;
     private static final Set<String> visitedUrls = ConcurrentHashMap.newKeySet();
     private static final AtomicInteger activeTasks = new AtomicInteger(0);
     private static final Map<String, Set<String>> disallowedPathsByDomain = new ConcurrentHashMap<>();
 
+    private static MongoCollection<Document> visitedCollection;
+
     public static void main(String[] args) {
         int threadCount = args.length > 0 ? Integer.parseInt(args[0]) : 50;
         executorService = Executors.newFixedThreadPool(threadCount);
 
+        // MongoDB connection
+        MongoClient mongoClient = MongoClients.create("mongodb+srv://mariohabib04:VihXqRIepdEtfxd4@search-engine.3p2dfao.mongodb.net/");
+        MongoDatabase database = mongoClient.getDatabase("search-engine");
+        visitedCollection = database.getCollection("urls");
+
+        // Load visited URLs from MongoDB
+        for (Document doc : visitedCollection.find()) {
+            String url = doc.getString("url");
+            if (url != null) visitedUrls.add(url);
+        }
+
         List<String> seeds = loadUrlsFromFile("seeds.txt");
-        visitedUrls.addAll(loadUrlsFromFile("visited.txt"));
 
         for (String seed : seeds) {
             String normalized = normalizeUrl(seed);
@@ -35,7 +51,9 @@ public class Crawler {
         }
 
         while (activeTasks.get() > 0) {
-            try { Thread.sleep(100); } catch (InterruptedException e) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
@@ -61,9 +79,9 @@ public class Crawler {
         executorService.submit(() -> {
             try {
                 System.out.println("Crawling: " + normalizedUrl);
-                saveUrlToFile("visited.txt", normalizedUrl);
+                saveUrlToDatabase(normalizedUrl);
 
-                Document doc = retrieveHTML(normalizedUrl);
+                org.jsoup.nodes.Document doc = retrieveHTML(normalizedUrl);
                 if (doc != null) {
                     Elements links = doc.select("a[href]");
                     for (Element link : links) {
@@ -80,7 +98,7 @@ public class Crawler {
         });
     }
 
-    private static Document retrieveHTML(String url) {
+    private static org.jsoup.nodes.Document retrieveHTML(String url) {
         try {
             return Jsoup.connect(url).userAgent("Mozilla/5.0").get();
         } catch (IOException e) {
@@ -112,7 +130,7 @@ public class Crawler {
             if (!disallowedPathsByDomain.containsKey(host)) {
                 Set<String> disallowed = new HashSet<>();
                 try {
-                    Document doc = Jsoup.connect(robotsUrl).ignoreContentType(true).get();
+                    org.jsoup.nodes.Document doc = Jsoup.connect(robotsUrl).ignoreContentType(true).get();
                     String[] lines = doc.body().text().split("User-agent: \\*");
                     if (lines.length > 1) {
                         for (String line : lines[1].split("\n")) {
@@ -136,12 +154,8 @@ public class Crawler {
         }
     }
 
-    private static void saveUrlToFile(String filePath, String url) {
-        try (FileWriter writer = new FileWriter(filePath, true)) {
-            writer.write(url + "\n");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private static void saveUrlToDatabase(String url) {
+        visitedCollection.insertOne(new Document("url", url));
     }
 
     private static List<String> loadUrlsFromFile(String filePath) {

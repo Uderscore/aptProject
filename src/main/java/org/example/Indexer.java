@@ -5,6 +5,7 @@ import java.util.List;
 
 import indexer.IndexManager;
 import indexer.utils.MongoConnector;
+import ranker.utils.PageRankAlgo;
 
 public class Indexer {
 
@@ -25,10 +26,12 @@ public class Indexer {
         // Wait for all tasks to complete
         try {
             manager.awaitCompletion();
+            (new PageRankAlgo()).computePageRank();
         } catch (InterruptedException e) {
             System.err.println("Indexing interrupted: " + e.getMessage());
         } finally {
             manager.shutdown();
+//            MongoConnector.close();
         }
     }
 }

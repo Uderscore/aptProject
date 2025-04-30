@@ -5,6 +5,9 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import indexer.models.Document;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class DocumentProcessor {
 
     /**
@@ -31,6 +34,20 @@ public class DocumentProcessor {
             headingText.append(heading.text()).append(" ");
         }
         doc.setHeadings(headingText.toString().trim());
+
+
+        //getting the outLinks for building the LinkGraph for outgoing
+        Elements links = parsedDoc.select("a[href]");
+        List<String> outgoingLinks = new ArrayList<>();
+        for (Element link: links) {
+            String absUrl = link.absUrl("href");
+            if (absUrl.startsWith("http")) {
+                outgoingLinks.add(absUrl);
+            }
+        }
+        doc.setOutgoingLinks(outgoingLinks);
+        doc.setPopularity(0.0); // Placeholder for popularity, can be updated later
+
 
         // Extract body text
         String bodyText = parsedDoc.body().text();
