@@ -43,7 +43,8 @@ public class MongoIndexer {
                 .append("url", doc.getUrl())
                 .append("title", doc.getTitle())
                 .append("headings", doc.getHeadings())
-                .append("body", doc.getBody());
+                .append("body", doc.getBody())
+                .append("outgoingLinks", doc.getOutgoingLinks());
 
         documentsCollection.insertOne(documentDoc);
 
@@ -136,5 +137,9 @@ public class MongoIndexer {
         }
 
         return entry;
+    }
+
+    public int getDocumentCount() {
+        return (int) documentsCollection.countDocuments();
     }
 }
