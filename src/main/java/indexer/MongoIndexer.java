@@ -123,7 +123,7 @@ public class MongoIndexer {
     }
 
     public InvertedIndexEntry getDocumentsForTerm(String term) {
-        org.bson.Document termDoc = termsCollection.find(eq("term", term)).first();
+        org.bson.Document termDoc = termsCollection.find(eq("term", term));
         if (termDoc == null) {
             return null;
         }
