@@ -19,12 +19,10 @@ import static com.mongodb.client.model.Updates.*;
 public class MongoIndexer {
     private final MongoCollection<org.bson.Document> documentsCollection;
     private final MongoCollection<org.bson.Document> termsCollection;
-    private final Tokenizer tokenizer;
 
     public MongoIndexer() {
         this.documentsCollection = MongoConnector.getCollection("documents");
         this.termsCollection = MongoConnector.getCollection("terms");
-        this.tokenizer = new Tokenizer();
     }
 
     public boolean isUrlIndexed(String url) {
@@ -100,7 +98,7 @@ public class MongoIndexer {
     }
 
     private void processText(String text, Map<String, Term> terms, TextSection section) {
-        List<String> tokens = tokenizer.tokenize(text);
+        List<String> tokens = Tokenizer.tokenize(text);
 
         for (int position = 0; position < tokens.size(); position++) {
             String token = tokens.get(position);
@@ -123,7 +121,7 @@ public class MongoIndexer {
     }
 
     public InvertedIndexEntry getDocumentsForTerm(String term) {
-        org.bson.Document termDoc = termsCollection.find(eq("term", term));
+        org.bson.Document termDoc = termsCollection.find(eq("term", term)).first();
         if (termDoc == null) {
             return null;
         }

@@ -31,7 +31,6 @@ public class Indexer {
             System.err.println("Indexing interrupted: " + e.getMessage());
         } finally {
             manager.shutdown();
-//            MongoConnector.close();
         }
     }
 }

@@ -3,17 +3,15 @@ package queryProcessor;
 import edu.stanford.nlp.ie.AbstractSequenceClassifier;
 import edu.stanford.nlp.ie.crf.CRFClassifier;
 import edu.stanford.nlp.ling.CoreLabel;
-import utilities.Constants;
+import ranker.rankers.Ranker;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 
 public class QueryProcessor {
 
     private Set<String> stopWords;
-    private Stemmer stemmer;
+    private final Stemmer stemmer;
     private AbstractSequenceClassifier<CoreLabel> classifier;
     private static QueryProcessor instance;
 
@@ -37,10 +35,12 @@ public class QueryProcessor {
     public List<String> process(String query) {
         query = query.toLowerCase();
         query = query.replaceAll("[^0-9a-zA-Z]", " ");
+        query = query.replaceAll("\\s+", " ");
+
         String[] words = query.split(" ");
         ArrayList<String> processedQuery = new ArrayList<>();
         for (String word : words) {
-            if (word.trim().isEmpty() || stopWords.contains(word))
+            if (word.trim().isEmpty() || stopWords.contains(word) || word.trim().length() < 2)
                 continue;
             String stemmedWord = stem(word);
             if (stemmedWord != null)
@@ -70,35 +70,68 @@ public class QueryProcessor {
         return stem(word);
     }
 
-    // public void extractPersonName(String country, String query,
-    // PersonNameThread.PersonNameListener listener) {
-    // if (classifier == null)
-    // loadClassifier();
-    // new PersonNameThread(classifier, country, query, listener).start();
-    // }
 
     private void initStopWords() {
         stopWords = new HashSet<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(Constants.STOP_WORDS_PATH))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                stopWords.add(line.trim().toLowerCase());
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("stop_words.txt")) {
+            if (inputStream != null) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        stopWords.add(line.trim().toLowerCase());
+                    }
+                }
+            } else {
+                System.err.println("Stop words file not found in resources");
+                // Fallback to default stop words
+                Collections.addAll(stopWords,
+                        "a", "an", "the", "this", "that", "is", "are", "was", "were", "be", "been");
             }
         } catch (IOException e) {
-            System.err.println("Failed to load stop words.");
-            e.printStackTrace();
+            System.err.println("Error loading stop words: " + e.getMessage());
+            // Fallback to default stop words
+            Collections.addAll(stopWords,
+                    "a", "an", "the", "this", "that", "is", "are", "was", "were", "be", "been");
         }
     }
 
     private void loadClassifier() {
-        if (classifier != null)
-            return;
-        String serializedClassifier = "classifiers/english.all.3class.distsim.crf.ser.gz";
+        if (classifier != null) return;
+
         try {
-            classifier = CRFClassifier.getClassifier(serializedClassifier);
+            // Load from the models JAR
+            classifier = CRFClassifier.getClassifier(
+                    "edu/stanford/nlp/models/ner/english.all.3class.distsim.crf.ser.gz");
         } catch (IOException | ClassNotFoundException e) {
-            System.err.println("Failed to load Stanford NER classifier.");
+            System.err.println("Failed to load Stanford NER classifier: " + e.getMessage());
             e.printStackTrace();
+
+            // Alternative loading method
+            try (InputStream modelIn = getClass().getClassLoader().getResourceAsStream(
+                    "edu/stanford/nlp/models/ner/english.all.3class.distsim.crf.ser.gz")) {
+                if (modelIn != null) {
+                    classifier = CRFClassifier.getClassifier(modelIn);
+                }
+            } catch (IOException | ClassNotFoundException e2) {
+                System.err.println("Alternative loading also failed: " + e2.getMessage());
+            }
         }
     }
+
+    public static void main(String[] args) {
+        List<String> processedQuery = new ArrayList<>();
+        try {
+
+            String query = "searching for github";
+            QueryProcessor queryProcessor = QueryProcessor.getInstance(new StanfordLemmatizerImpl());
+            processedQuery = queryProcessor.process(query);
+            System.out.println("Processed Query: " + processedQuery);
+        } catch (Exception e) {
+            System.out.println("a7a");
+        }
+        Ranker ranker = new Ranker();
+        List<String> rankerUrls = ranker.rank(processedQuery, 100);
+        System.out.println("Ranked URLs: " + rankerUrls);
+    }
 }
+

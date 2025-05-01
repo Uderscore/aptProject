@@ -2,7 +2,6 @@ package ranker.rankers;
 
 import com.mongodb.client.MongoCollection;
 import indexer.MongoIndexer;
-import indexer.models.Document;
 import indexer.models.DocumentTermInfo;
 import indexer.models.InvertedIndexEntry;
 import indexer.utils.MongoConnector;
@@ -14,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import ranker.utils.GetNthLargest;
 
-import static javax.management.Query.eq;
 
 public class Ranker implements IRanker {
     private  static MongoIndexer indexer = null;
@@ -51,12 +49,19 @@ public class Ranker implements IRanker {
         terms.forEach(term -> calculateTF_IDF(term, documentScore));
         calculatePageRank(popularity);
 
+        for (Map.Entry<String, Double> doc : documentScore.entrySet()) {
+            String url = doc.getKey();
+            System.out.println("url is " + url);
+            System.out.println("score is " + doc.getValue());
+        }
 
-        return GetNthLargest.getNthElements(resultsSizedK(documentScore, topK), topK);
+
+        return GetNthLargest.getNthElements(resultsSizedK(documentScore, topK), Math.min(topK, documentScore.size()));
     }
 
 
     private void calculatePageRank(Map<String, Double> documentScore) {
+
 
         for (Map.Entry<String, Double> doc : documentScore.entrySet()) {
             String url = doc.getKey();
@@ -85,12 +90,15 @@ public class Ranker implements IRanker {
                 break;
             }
         }
+        System.out.printf("Result size is %d\n", result.size());
+        System.out.println("Result is " + result);
 
         return result;
     }
 
     private void calculateTF_IDF(String term, Map<String, Double> documentScore) {
         InvertedIndexEntry entry = indexer.getDocumentsForTerm(term);
+        System.out.println("Iam in the Ranker ");
 
         if (entry == null)  return;
 
@@ -98,6 +106,11 @@ public class Ranker implements IRanker {
 
         if (df == 0) return;
 
+        System.out.println("_".repeat(20));
+        System.out.println("Term is " + term);
+        System.out.println("Document frequency is " + df);
+        System.out.println("Document count is " + documentCount);
+        System.out.println("_".repeat(20));
         double idf = Math.log10((double) documentCount / df);
 
         var termDocuments = entry.getDocuments();
@@ -111,7 +124,11 @@ public class Ranker implements IRanker {
             double tf_body = termInfo.getTfBody();
             double TF = (TITLE_WEIGHT * tf_title + HEADING_WEIGHT * tf_heading + BODY_WEIGHT * tf_body);
             double TFIDF = TF * idf;
+            System.out.println("Tf is " + TF);
+            System.out.println("Idf is " + idf);
+            System.out.println("TFIDF is " + TFIDF);
             documentScore.put(url, documentScore.getOrDefault(url, 0.0) + TFIDF);
         }
+        System.out.println("There");
     }
 }
