@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import ranker.utils.GetNthLargest;
+import ranker.utils.GetKthLargestElements;
 
 
 public class Ranker implements IRanker {
@@ -56,7 +56,7 @@ public class Ranker implements IRanker {
         }
 
 
-        return GetNthLargest.getNthElements(resultsSizedK(documentScore, topK), Math.min(topK, documentScore.size()));
+        return GetKthLargestElements.getNthElements(resultsSizedK(documentScore, topK), Math.min(topK, documentScore.size()));
     }
 
 

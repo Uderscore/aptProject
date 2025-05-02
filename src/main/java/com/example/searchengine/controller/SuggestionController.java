@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/suggestion")
@@ -22,7 +23,7 @@ public class SuggestionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<String>> suggest(
+    public ResponseEntity<?> suggest(
             @RequestParam("prefix") String prefix,
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
         try {
@@ -32,7 +33,8 @@ public class SuggestionController {
             List<String> suggestions = suggestionService.getSuggestions(prefix, limit);
             return ResponseEntity.ok(suggestions);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(List.of("Server error: " + "An error occurred while fetching suggestions"));
+            Map<String, String> errorResponse =  Map.of("error", "Error fetching suggestions");
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 }

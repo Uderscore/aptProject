@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.Random;
 import ranker.models.Pair;
 
-public class GetNthLargest {
+public class GetKthLargestElements {
     private static final Random random = new Random();
 
     public static List<String> getNthElements(List<Pair<String, Double>> pairs, int topK) {

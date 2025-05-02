@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/search")
@@ -63,9 +64,11 @@ public class SearchController {
 
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            Map<String, String> errorResponse =  Map.of("error", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Server error: " + e.getMessage());
+            Map<String, String> errorResponse =  Map.of("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
 }

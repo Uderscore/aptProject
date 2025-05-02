@@ -14,9 +14,17 @@ public class WebDocument {
 //    private String body;
     private List<String> headings;
 
+    private String body;
+    private double popularity;
+
+
     // Constructors, getters, setters
     public WebDocument() {}
 
+    public double getPopularity() { return popularity; }
+    public void setPopularity(double popularity) { this.popularity = popularity; }
+    public String getBody() { return body; }
+    public void setSnippet(String body) { this.body = body; }
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
