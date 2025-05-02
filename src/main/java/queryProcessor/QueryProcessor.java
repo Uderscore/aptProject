@@ -49,27 +49,6 @@ public class QueryProcessor {
         return processedQuery;
     }
 
-    public Map<String, String> processWithOriginals(String query) {
-        query = query.toLowerCase();
-        query = query.replaceAll("[^0-9a-zA-Z]", " ");
-        String[] words = query.split(" ");
-        Map<String, String> wordMap = new LinkedHashMap<>();
-        for (String word : words) {
-            if (word.trim().isEmpty() || stopWords.contains(word))
-                continue;
-            String stemmed = stem(word);
-            if (stemmed != null)
-                wordMap.put(word, stemmed);
-        }
-        return wordMap;
-    }
-
-    public String processWord(String word) {
-        if (word.trim().isEmpty() || stopWords.contains(word))
-            return null;
-        return stem(word);
-    }
-
 
     private void initStopWords() {
         stopWords = new HashSet<>();
