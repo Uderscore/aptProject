@@ -11,15 +11,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 import ranker.utils.GetKthLargestElements;
 
 
 public class Ranker implements IRanker {
     private  static MongoIndexer indexer = null;
     private final static double ALPHA = 0.70;
-    private final static int TITLE_WEIGHT = 3;
-    private final static int HEADING_WEIGHT = 2;
+    private final static int TITLE_WEIGHT = 15;
+    private final static int HEADING_WEIGHT = 5;
     private final static int BODY_WEIGHT = 1;
+    private final static Double THRESHOLD = 1.0;
     private  static MongoCollection<org.bson.Document> documentCollection = null;
     private static int documentCount;
 
@@ -44,25 +47,33 @@ public class Ranker implements IRanker {
             return List.of();
         }
 
-        Map<String, Double> documentScore = new HashMap<>();//tf-Idf popularity
-        Map<String, Double> popularity = new HashMap<>();
+        Map<String, Double> documentScore = new HashMap<>();
         terms.forEach(term -> calculateTF_IDF(term, documentScore));
-        calculatePageRank(popularity);
+        calculatePageRank(documentScore);
 
+        // Debug printing
         for (Map.Entry<String, Double> doc : documentScore.entrySet()) {
             String url = doc.getKey();
+            Double score = doc.getValue();
+            if (score < THRESHOLD) {
+                System.out.println("score is less than " + THRESHOLD);
+                continue;
+            }
             System.out.println("url is " + url);
-            System.out.println("score is " + doc.getValue());
+            System.out.println("score is " + score);
         }
 
-
-        return GetKthLargestElements.getNthElements(resultsSizedK(documentScore, topK), Math.min(topK, documentScore.size()));
+        // Sort by score in descending order and return top-K results
+        return documentScore.entrySet().stream()
+                .filter(entry -> entry.getValue() >= THRESHOLD)
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(topK)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
     }
 
 
     private void calculatePageRank(Map<String, Double> documentScore) {
-
-
         for (Map.Entry<String, Double> doc : documentScore.entrySet()) {
             String url = doc.getKey();
             org.bson.Document document = documentCollection.find(com.mongodb.client.model.Filters.eq("url", url)).first();

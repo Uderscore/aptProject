@@ -20,7 +20,7 @@ public class InvertedIndexEntry {
                             List<Integer> titlePositions, List<Integer> headingsPositions, List<Integer> bodyPositions) {
         documents.put(url, new DocumentTermInfo(tfTitle, tfHeadings, tfBody,
                 titlePositions, headingsPositions, bodyPositions));
-        documentFrequency++;
+        //documentFrequency++;
     }
 
     // Getters
