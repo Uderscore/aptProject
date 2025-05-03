@@ -16,4 +16,8 @@ public class Tokenizer {
     public static List<String> tokenize(String text) {
         return queryProcessor.process(text);
     }
+
+    public static String[] removeNonAlphanumeric(String text) {
+        return queryProcessor.removeNonAlphaNumerics(text);
+    }
 }

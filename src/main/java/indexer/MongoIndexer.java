@@ -42,7 +42,8 @@ public class MongoIndexer {
                 .append("title", doc.getTitle())
                 .append("headings", doc.getHeadings())
                 .append("body", doc.getBody())
-                .append("outgoingLinks", doc.getOutgoingLinks());
+                .append("outgoingLinks", doc.getOutgoingLinks())
+                .append("wordCount", doc.getWordCount());
 
         documentsCollection.insertOne(documentDoc);
 

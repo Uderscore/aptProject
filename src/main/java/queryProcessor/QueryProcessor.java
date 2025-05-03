@@ -33,11 +33,8 @@ public class QueryProcessor {
     }
 
     public List<String> process(String query) {
-        query = query.toLowerCase();
-        query = query.replaceAll("[^0-9a-zA-Z]", " ");
-        query = query.replaceAll("\\s+", " ");
+        String[] words = removeNonAlphaNumerics(query);
 
-        String[] words = query.split(" ");
         ArrayList<String> processedQuery = new ArrayList<>();
         for (String word : words) {
             if (word.trim().isEmpty() || stopWords.contains(word) || word.trim().length() < 2)
@@ -47,6 +44,13 @@ public class QueryProcessor {
                 processedQuery.add(stemmedWord);
         }
         return processedQuery;
+    }
+
+    public String[] removeNonAlphaNumerics(String query) {
+        query = query.toLowerCase();
+        query = query.replaceAll("[^0-9a-zA-Z]", " ");
+        query = query.replaceAll("\\s+", " ");
+        return query.split(" ");
     }
 
 
@@ -100,16 +104,15 @@ public class QueryProcessor {
     public static void main(String[] args) {
         List<String> processedQuery = new ArrayList<>();
         try {
-
-            String query = "searching for github";
+            String query = "entertainment";
             QueryProcessor queryProcessor = QueryProcessor.getInstance(new StanfordLemmatizerImpl());
             processedQuery = queryProcessor.process(query);
             System.out.println("Processed Query: " + processedQuery);
         } catch (Exception e) {
-            System.out.println("a7a");
+            System.out.println("fk");
         }
         Ranker ranker = new Ranker();
-        List<String> rankerUrls = ranker.rank(processedQuery, 100);
+        List<String> rankerUrls = ranker.rank(processedQuery, 10000);
         System.out.println("Ranked URLs: " + rankerUrls);
     }
 }

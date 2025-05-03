@@ -8,11 +8,19 @@ public class Document {
     private String headings;
     private String body;
     private double popularity;
+    private int wordCount;
 
     private List<String> outgoingLinks;
 
     public Document() {
         this.outgoingLinks = new ArrayList<>();
+    }
+
+    public int getWordCount() {
+        return wordCount;
+    }
+    public void setWordCount(int wordCount) {
+        this.wordCount = wordCount;
     }
 
 

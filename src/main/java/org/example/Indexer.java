@@ -18,7 +18,7 @@ public class Indexer {
         MongoConnector.initialize();
 
         // Number of URLs to index
-        int urlLimit = 100;
+        int urlLimit = 50;
 
         // Get random URLs from MongoDB
         MongoCollection<Document> urlsCollection = MongoConnector.getCollection("urls");
@@ -42,7 +42,7 @@ public class Indexer {
         System.out.println("Found " + urls.size() + " random URLs to index");
 
         // Create index manager with multiple threads
-        IndexManager manager = new IndexManager(4); // 4 threads
+        IndexManager manager = new IndexManager(16); // 4 threads
 
         // Index each URL asynchronously
         for (String url : urls) {
@@ -54,7 +54,7 @@ public class Indexer {
             System.out.println("Waiting for indexing to complete...");
             manager.awaitCompletion();
             System.out.println("Indexing completed. Computing PageRank...");
-            (new PageRankAlgo()).computePageRank();
+            (new PageRankAlgo(MongoConnector.getCollection("documents"))).computePageRank();
             System.out.println("PageRank computation completed.");
         } catch (InterruptedException e) {
             System.err.println("Indexing interrupted: " + e.getMessage());

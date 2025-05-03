@@ -53,6 +53,11 @@ public class DocumentProcessor {
         String bodyText = parsedDoc.body().text();
         doc.setBody(bodyText);
 
+        int wordsCount = Tokenizer.removeNonAlphanumeric(doc.getTitle()).length +
+                Tokenizer.removeNonAlphanumeric(doc.getHeadings()).length +
+                Tokenizer.removeNonAlphanumeric(doc.getBody()).length;
+        doc.setWordCount(wordsCount);
+
         return doc;
     }
 }

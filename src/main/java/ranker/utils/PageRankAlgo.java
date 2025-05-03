@@ -7,6 +7,7 @@ import com.mongodb.client.model.Updates;
 import com.mongodb.client.model.WriteModel;
 import indexer.utils.MongoConnector;
 import org.bson.Document;
+import reactor.core.publisher.Mono;
 
 import java.util.*;
 
@@ -18,42 +19,33 @@ public class PageRankAlgo {
     private final Map<Integer, String> idToUrlMap;
     private List<Set<Integer>> adjList;
     private double[] pageRankScores;
+    private final MongoCollection<Document> documentsCollection;
 
 
-    public PageRankAlgo() {
+    public PageRankAlgo(MongoCollection<Document> documentsCollection) {
         urlToIdMap = new HashMap<>();
         idToUrlMap = new HashMap<>();
         adjList = new ArrayList<>();
         pageRankScores = new double[0];
+        this.documentsCollection = documentsCollection;
     }
 
     public void computePageRank() {
-        MongoCollection<Document> documentsCollection = MongoConnector.getCollection("documents");
-
-        convertUrlsToIds(documentsCollection);
+        convertUrlsToIds();
         if (urlToIdMap.isEmpty()) {
             System.out.println("No URLs found in the collection.");
             return;
         }
 
         initAdjList();
-        populateAdjList(documentsCollection);
-
+        populateAdjList();
         calcRanks();
-        storeNewRanksInDB(documentsCollection);
+        storeNewRanksInDB();
     }
 
-    /**
-     * this method converts the urls to ids and stores them in a map
-     * it also stores the ids to urls in a map
-     * we did this bcs we need to convert url to int to be faster in computation
-     * my engine is fast af boi
-     *
-     * @param documentCollection the documentsCollection that we read form the db
-     */
-    private void convertUrlsToIds(MongoCollection<Document> documentCollection) {
+    private void convertUrlsToIds() {
         int idCounter = 0;
-        try (MongoCursor<Document> cursor = documentCollection.find().iterator()) {
+        try (MongoCursor<Document> cursor = documentsCollection.find().iterator()) {
             while (cursor.hasNext()) {
                 Document doc = cursor.next();
                 String url = doc.getString("url");
@@ -75,7 +67,7 @@ public class PageRankAlgo {
         }
     }
 
-    private void populateAdjList(MongoCollection<Document> documentsCollection) {
+    private void populateAdjList() {
         try (MongoCursor<Document> cursor = documentsCollection.find().iterator()) {
             while (cursor.hasNext()) {
                 Document doc = cursor.next();
@@ -88,7 +80,7 @@ public class PageRankAlgo {
                 for (String link : outgoingLinks) {
                     if (!urlToIdMap.containsKey(link)) continue;
                     int toNode = urlToIdMap.get(link);
-                    if (fromNode == toNode || adjList.get(fromNode).contains(toNode)) continue;
+                    if (adjList.get(fromNode).contains(toNode)) continue;
                     adjList.get(fromNode).add(toNode);
                 }
             }
@@ -119,58 +111,63 @@ public class PageRankAlgo {
             for (int i = 0; i < numOfNode; ++i) {
                 if (adjList.get(i).isEmpty()) {
                     danglingMass += pageRankScores[i];
-                } else {
-                    double contribution = pageRankScores[i] / adjList.get(i).size();
-                    for (int j : adjList.get(i)) {
-                        nextPageRankScores[j] += contribution * DAMPING_FACTOR;
-                    }
+                    continue;
+                }
+                double contribution = DAMPING_FACTOR * (pageRankScores[i] / adjList.get(i).size());
+                for (int j : adjList.get(i)) {
+                    nextPageRankScores[j] += contribution;
                 }
             }
 
+            double distributedRank = DAMPING_FACTOR * (danglingMass / numOfNode);
             for (int i = 0; i < numOfNode; ++i) {
-                nextPageRankScores[i] += danglingMass * DAMPING_FACTOR / numOfNode;
+                nextPageRankScores[i] += distributedRank;
             }
 
             // check for convergence
-            double maxDiff = 0.0;
+            double error = 0.0;
             for (int i = 0; i < numOfNode; ++i) {
-                maxDiff = Math.max(maxDiff, Math.abs(nextPageRankScores[i] - pageRankScores[i]));
-                pageRankScores[i] = nextPageRankScores[i];
+                error += Math.abs(nextPageRankScores[i] - pageRankScores[i]);
             }
 
-            if (maxDiff < CONVERGENCE_THRESHOLD) {
-                break;
+            if (error < CONVERGENCE_THRESHOLD) {
+                return;
             }
+
+            // update the page rank scores
+            pageRankScores = nextPageRankScores;
         }
+        System.out.println("Could not converge in " + MAX_ITERATIONS + " iterations.");
     }
 
 
-    /**
-     * this method is used to store the new ranks in the database
-     * @param documentsCollection the collection to store the ranks in
-     */
-    private  void storeNewRanksInDB(MongoCollection<Document> documentsCollection) {
+    private  void storeNewRanksInDB() {
         List<WriteModel<Document>> bulkWrites = new ArrayList<>();
+        final int BATCH_SIZE = 1000;
 
-        for (int i = 0; i < pageRankScores.length; i++) {
-            String url = idToUrlMap.get(i);
-            double rank = pageRankScores[i];
+        try {
+            for (int i = 0; i < pageRankScores.length; i++) {
+                String url = idToUrlMap.get(i);
+                double rank = pageRankScores[i];
 
-            bulkWrites.add(new UpdateOneModel<>(
-                    Filters.eq("url", url),
-                    Updates.set("popularity", rank)
-            ));
+                bulkWrites.add(new UpdateOneModel<>(
+                        Filters.eq("url", url),
+                        Updates.set("popularity", rank)
+                ));
 
-            // Process in batches of 1000
-            if (bulkWrites.size() >= 1000) {
-                documentsCollection.bulkWrite(bulkWrites);
-                bulkWrites.clear();
+                // Process in batches of 1000
+                if (bulkWrites.size() >= BATCH_SIZE) {
+                    documentsCollection.bulkWrite(bulkWrites);
+                    bulkWrites.clear();
+                }
             }
-        }
 
-        // Process remaining updates
-        if (!bulkWrites.isEmpty()) {
-            documentsCollection.bulkWrite(bulkWrites);
+            // Process remaining updates
+            if (!bulkWrites.isEmpty()) {
+                documentsCollection.bulkWrite(bulkWrites);
+            }
+        } catch (Exception e) {
+            System.out.println("Error updating documents: " + e.getMessage());
         }
     }
 }
