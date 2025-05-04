@@ -14,7 +14,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.mongodb.client.model.Filters.eq;
-
+import com.mongodb.client.model.IndexOptions;
 public class Crawler {
 
     private static final int MAX_DEPTH = 2;
@@ -27,13 +27,15 @@ public class Crawler {
 
     public static void main(String[] args) {
         int threadCount = args.length > 0 ? Integer.parseInt(args[0]) : 50;
+        System.out.println("Using " + threadCount + " threads for crawling.");
         executorService = Executors.newFixedThreadPool(threadCount);
 
         // MongoDB connection
         MongoClient mongoClient = MongoClients.create("mongodb+srv://mariohabib04:VihXqRIepdEtfxd4@search-engine.3p2dfao.mongodb.net/");
         MongoDatabase database = mongoClient.getDatabase("search-engine");
         visitedCollection = database.getCollection("urls");
-
+        // Ensure unique index on 'url'
+visitedCollection.createIndex(new Document("url", 1), new IndexOptions().unique(true));
         // Load visited URLs from MongoDB
         for (Document doc : visitedCollection.find()) {
             String url = doc.getString("url");
@@ -109,18 +111,24 @@ public class Crawler {
 
     private static String normalizeUrl(String url) {
         try {
-            URI uri = new URI(url);
-            String scheme = uri.getScheme() == null ? "http" : uri.getScheme().toLowerCase();
-            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
+            URI uri = new URI(url).normalize();
+    
+            String scheme = (uri.getScheme() == null ? "http" : uri.getScheme().toLowerCase());
+            String host = (uri.getHost() == null ? "" : uri.getHost().toLowerCase());
             if (host.startsWith("www.")) host = host.substring(4);
-            String path = uri.getPath() == null ? "" : uri.getPath();
-            if (path.endsWith("/") && path.length() > 1) path = path.substring(0, path.length() - 1);
-            return scheme + "://" + host + path;
+    
+            String path = uri.getPath() == null || uri.getPath().isEmpty() ? "/" : uri.getPath();
+            if (path.length() > 1 && path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);  // remove trailing slash unless it's root
+            }
+    
+            String query = (uri.getQuery() == null ? "" : "?" + uri.getQuery());
+    
+            return scheme + "://" + host + path + query;
         } catch (Exception e) {
             return url;
         }
     }
-
     private static boolean isAllowedByRobotsTxt(String url) {
         try {
             URI uri = new URI(url);
@@ -155,9 +163,10 @@ public class Crawler {
     }
 
     private static void saveUrlToDatabase(String url) {
-        visitedCollection.insertOne(new Document("url", url));
+        if (visitedCollection.find(eq("url", url)).first() == null) {
+            visitedCollection.insertOne(new Document("url", url));
+        }
     }
-
     private static List<String> loadUrlsFromFile(String filePath) {
         List<String> urls = new ArrayList<>();
         try (Scanner scanner = new Scanner(new File(filePath))) {
