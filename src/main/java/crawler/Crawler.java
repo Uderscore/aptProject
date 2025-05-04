@@ -12,11 +12,14 @@ import java.net.URI;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 
 import static com.mongodb.client.model.Filters.eq;
 import com.mongodb.client.model.IndexOptions;
-public class Crawler {
 
+public class Crawler {
+    private static BufferedWriter blockedUrlsWriter;
     private static final int MAX_DEPTH = 2;
     private static ExecutorService executorService;
     private static final Set<String> visitedUrls = ConcurrentHashMap.newKeySet();
@@ -34,16 +37,24 @@ public class Crawler {
         MongoClient mongoClient = MongoClients.create("mongodb+srv://mariohabib04:VihXqRIepdEtfxd4@search-engine.3p2dfao.mongodb.net/");
         MongoDatabase database = mongoClient.getDatabase("search-engine");
         visitedCollection = database.getCollection("urls");
+
         // Ensure unique index on 'url'
-visitedCollection.createIndex(new Document("url", 1), new IndexOptions().unique(true));
+        visitedCollection.createIndex(new Document("url", 1), new IndexOptions().unique(true));
+
         // Load visited URLs from MongoDB
         for (Document doc : visitedCollection.find()) {
             String url = doc.getString("url");
             if (url != null) visitedUrls.add(url);
         }
 
-        List<String> seeds = loadUrlsFromFile("seeds.txt");
+        try {
+            blockedUrlsWriter = new BufferedWriter(new FileWriter("blocked_urls.txt", true));
+        } catch (IOException e) {
+            System.err.println("Could not open file to log blocked URLs.");
+            return;
+        }
 
+        List<String> seeds = loadUrlsFromFile("seeds.txt");
         for (String seed : seeds) {
             String normalized = normalizeUrl(seed);
             if (!visitedUrls.contains(normalized)) {
@@ -74,6 +85,15 @@ visitedCollection.createIndex(new Document("url", 1), new IndexOptions().unique(
 
         if (!isAllowedByRobotsTxt(normalizedUrl)) {
             System.out.println("Blocked by robots.txt: " + normalizedUrl);
+            try {
+                synchronized (blockedUrlsWriter) {
+                    blockedUrlsWriter.write(normalizedUrl);
+                    blockedUrlsWriter.newLine();
+                    blockedUrlsWriter.flush();
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to write blocked URL: " + normalizedUrl);
+            }
             activeTasks.decrementAndGet();
             return;
         }
@@ -112,53 +132,70 @@ visitedCollection.createIndex(new Document("url", 1), new IndexOptions().unique(
     private static String normalizeUrl(String url) {
         try {
             URI uri = new URI(url).normalize();
-    
             String scheme = (uri.getScheme() == null ? "http" : uri.getScheme().toLowerCase());
             String host = (uri.getHost() == null ? "" : uri.getHost().toLowerCase());
             if (host.startsWith("www.")) host = host.substring(4);
-    
+
             String path = uri.getPath() == null || uri.getPath().isEmpty() ? "/" : uri.getPath();
             if (path.length() > 1 && path.endsWith("/")) {
-                path = path.substring(0, path.length() - 1);  // remove trailing slash unless it's root
+                path = path.substring(0, path.length() - 1);
             }
-    
+
             String query = (uri.getQuery() == null ? "" : "?" + uri.getQuery());
-    
             return scheme + "://" + host + path + query;
         } catch (Exception e) {
             return url;
         }
     }
+
     private static boolean isAllowedByRobotsTxt(String url) {
         try {
             URI uri = new URI(url);
             String host = uri.getHost();
-            String robotsUrl = uri.getScheme() + "://" + host + "/robots.txt";
+            String scheme = uri.getScheme();
+            String robotsUrl = scheme + "://" + host + "/robots.txt";
 
             if (!disallowedPathsByDomain.containsKey(host)) {
                 Set<String> disallowed = new HashSet<>();
                 try {
-                    org.jsoup.nodes.Document doc = Jsoup.connect(robotsUrl).ignoreContentType(true).get();
-                    String[] lines = doc.body().text().split("User-agent: \\*");
-                    if (lines.length > 1) {
-                        for (String line : lines[1].split("\n")) {
-                            if (line.toLowerCase().startsWith("disallow:")) {
-                                disallowed.add(line.split(":", 2)[1].trim());
+                    String robotsTxt = Jsoup.connect(robotsUrl)
+                            .ignoreContentType(true)
+                            .userAgent("Mozilla/5.0")
+                            .timeout(5000)
+                            .execute()
+                            .body();
+
+                    boolean appliesToUs = false;
+                    for (String line : robotsTxt.split("\n")) {
+                        line = line.trim();
+                        if (line.toLowerCase().startsWith("user-agent:")) {
+                            String agent = line.substring(11).trim();
+                            appliesToUs = agent.equals("*");
+                        } else if (appliesToUs && line.toLowerCase().startsWith("disallow:")) {
+                            String path = line.substring(9).trim();
+                            if (path.isEmpty()) {
+                                disallowed.clear();  // allow all
+                            } else {
+                                if (!path.startsWith("/")) path = "/" + path;
+                                disallowed.add(path.trim());
                             }
                         }
                     }
-                } catch (IOException ignored) {}
+                } catch (IOException e) {
+                    System.err.println("Failed to fetch robots.txt from: " + robotsUrl);
+                }
                 disallowedPathsByDomain.put(host, disallowed);
             }
 
             String path = uri.getPath();
-            for (String disallowed : disallowedPathsByDomain.get(host)) {
-                if (path.startsWith(disallowed)) return false;
+            for (String disallowed : disallowedPathsByDomain.getOrDefault(host, Collections.emptySet())) {
+                if (path.startsWith(disallowed)) {
+                    return false;
+                }
             }
             return true;
-
         } catch (Exception e) {
-            return true; // default to allow
+            return true;  // Allow if any error
         }
     }
 
@@ -167,6 +204,7 @@ visitedCollection.createIndex(new Document("url", 1), new IndexOptions().unique(
             visitedCollection.insertOne(new Document("url", url));
         }
     }
+
     private static List<String> loadUrlsFromFile(String filePath) {
         List<String> urls = new ArrayList<>();
         try (Scanner scanner = new Scanner(new File(filePath))) {
@@ -175,7 +213,7 @@ visitedCollection.createIndex(new Document("url", 1), new IndexOptions().unique(
                 if (!url.isEmpty()) urls.add(url);
             }
         } catch (IOException e) {
-            // File not found is okay on first run
+            // Ignore on first run
         }
         return urls;
     }
