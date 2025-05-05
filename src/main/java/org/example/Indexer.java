@@ -18,7 +18,7 @@ public class Indexer {
         MongoConnector.initialize();
 
         // Number of URLs to index
-        int urlLimit = 50;
+        int urlLimit = 2500;
 
         // Get random URLs from MongoDB
         MongoCollection<Document> urlsCollection = MongoConnector.getCollection("urls");
@@ -42,7 +42,7 @@ public class Indexer {
         System.out.println("Found " + urls.size() + " random URLs to index");
 
         // Create index manager with multiple threads
-        IndexManager manager = new IndexManager(16); // 4 threads
+        IndexManager manager = new IndexManager(20); // 4 threads
 
         // Index each URL asynchronously
         for (String url : urls) {

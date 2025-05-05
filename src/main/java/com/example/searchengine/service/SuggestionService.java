@@ -26,22 +26,23 @@ public class SuggestionService {
         this.redisTemplate = redisTemplate;
     }
 
-    @Scheduled(cron = "${suggestion.sync.cron}")
+//    @Scheduled(cron = "${suggestion.sync.cron}")
     public void syncSuggestions() {
-        // Get top 1000 queries by count from the mongo database
-        System.out.println("Syncing suggestions from MongoDB to Redis...");
+        String tempKey = SUGGESTION_KEY + "_temp";
+
+        // Populate temporary key
         List<QueryLog> popularQueries = queryLogRepository.findAll()
                 .stream()
                 .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
                 .limit(1000)
                 .toList();
 
-        // Clear existing suggestions from redis
-        redisTemplate.delete(SUGGESTION_KEY);
-
-        // Add to Redis sorted set
+        // Add to temporary Redis sorted set
         popularQueries.forEach(log ->
-                redisTemplate.opsForZSet().add(SUGGESTION_KEY, log.getQuery(), log.getCount()));
+                redisTemplate.opsForZSet().add(tempKey, log.getQuery(), log.getCount()));
+
+        // Atomic rename (replace old with new)
+        redisTemplate.rename(tempKey, SUGGESTION_KEY);
     }
 
     public List<String> getSuggestions(String prefix, int limit) {

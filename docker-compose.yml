@@ -9,5 +9,6 @@ services:
     command: redis-server --appendonly yes
     restart: always
 
+
 volumes:
   redis-data:

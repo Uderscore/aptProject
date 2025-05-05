@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/suggestion")
+@RequestMapping("api/v1/suggestion")
 public class SuggestionController {
     private final SuggestionService suggestionService;
 

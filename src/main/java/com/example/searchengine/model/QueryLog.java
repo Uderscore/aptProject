@@ -2,7 +2,6 @@ package com.example.searchengine.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-
 @Document(collection = "query_logs")
 public class QueryLog {
     @Id
