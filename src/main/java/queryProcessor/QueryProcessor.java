@@ -104,7 +104,7 @@ public class QueryProcessor {
     public static void main(String[] args) {
         List<String> processedQuery = new ArrayList<>();
         try {
-            String query = "cake";
+            String query = "burger";
             QueryProcessor queryProcessor = QueryProcessor.getInstance(new StanfordLemmatizerImpl());
             processedQuery = queryProcessor.process(query);
             System.out.println("Processed Query: " + processedQuery);

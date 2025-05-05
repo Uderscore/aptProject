@@ -376,6 +376,7 @@ import com.example.searchengine.model.*;
 import com.example.searchengine.repository.DocumentRepository;
 import com.example.searchengine.repository.QueryLogRepository;
 import com.example.searchengine.repository.TermRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -389,6 +390,9 @@ import static com.example.searchengine.service.utils.Utils.parsePhraseQuery;
 public class SearchService {
     private final QueryProcessor queryProcessor;
     private final Ranker ranker;
+
+    private final  ranker.rankers.Ranker oldRanker;
+
     private final DocumentRepository documentRepository;
     private final TermRepository termRepository;
     private final QueryLogRepository queryLogRepository;
@@ -401,13 +405,15 @@ public class SearchService {
             QueryProcessor queryProcessor,
             Ranker ranker, DocumentRepository documentRepository,
             TermRepository termRepository,
-            QueryLogRepository queryLogRepository
+            QueryLogRepository queryLogRepository,
+            ranker.rankers.Ranker oldRanker
     ) {
         this.queryProcessor = queryProcessor;
         this.ranker = ranker;
         this.documentRepository = documentRepository;
         this.termRepository = termRepository;
         this.queryLogRepository = queryLogRepository;
+        this.oldRanker = oldRanker;
     }
 
     public List<WebDocument> search(String query, int topK) {
@@ -422,76 +428,102 @@ public class SearchService {
 
         List<String> terms = queryProcessor.process(query);
 
-        // Fetch all terms at once
-        List<Term> termList = termRepository.findAllByTerm(terms);
+        ///
+// Get ordered URLs from the ranker
+        List<String> orderedUrls = oldRanker.rank(terms, topK);
 
+        // Fetch documents for these URLs
+        List<WebDocument> documents = documentRepository.findByUrlIn(orderedUrls);
 
-        Map<String, Term> termCache = termList.stream()
-                .collect(Collectors.toMap(Term::getTerm, t -> t));
-
-
-
-        // Collect all unique URLs
-        Set<String> allUrls = new HashSet<>();
-        for (Term termEntry : termCache.values()) {
-            for (DocumentTermInfo dti : termEntry.getDocuments()) {
-                allUrls.add(dti.getUrl());
-            }
-        }
-
-
-        List<WebDocument> allDocuments = documentRepository.findByUrlIn(new ArrayList<>(allUrls));
-
-        Map<String, WebDocument> documentMap = allDocuments.stream()
+        // Create a map for quick lookup
+        Map<String, WebDocument> documentMap = documents.stream()
                 .collect(Collectors.toMap(WebDocument::getUrl, doc -> doc));
-        Map<String, Integer> wordCountMap = allDocuments.stream()
-                .collect(Collectors.toMap(WebDocument::getUrl, WebDocument::getWordCount));
 
-
-
-        Map<String, Double> documentScore = new HashMap<>();
-        long documentCount = documentRepository.count();
-
-
-        for (String term : terms) {
-            Term termEntry = termCache.get(term);
-            if (termEntry == null) continue;
-            int df = termEntry.getDf();
-            if (df == 0) continue;
-            double idf = Math.log((double) documentCount / df);
-            for (DocumentTermInfo dti : termEntry.getDocuments()) {
-                String url = dti.getUrl();
-                if (!documentMap.containsKey(url)) continue;
-                int docLength = wordCountMap.getOrDefault(url, 1);
-                double tfTitle = dti.getTfTitle();
-                double tfHeading = dti.getTfHeadings();
-                double tfBody = dti.getTfBody();
-                double tf = (TITLE_WEIGHT * tfTitle + HEADING_WEIGHT * tfHeading + BODY_WEIGHT * tfBody) / (docLength + 1.0);
-                double tfIdf = tf * idf;
-                documentScore.put(url, documentScore.getOrDefault(url, 0.0) + tfIdf);
-            }
-        }
-
-
-
-
-        Map<String, Double> finalScores = ranker.calculatePageRank(documentScore);
-
-
-        // Get topK URLs
-        List<String> topUrls = finalScores.entrySet().stream()
-                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
-                .limit(topK)
-                .map(Map.Entry::getKey)
-                .toList();
-
-
-
-
-        return topUrls.stream()
+        // Preserve the original ordering from the ranker
+        return orderedUrls.stream()
                 .map(documentMap::get)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList());        ///
+
+        // Fetch all terms at once
+//        List<Term> termList = termRepository.findAllByTerm(terms);
+//
+//
+//        Map<String, Term> termCache = termList.stream()
+//                .collect(Collectors.toMap(Term::getTerm, t -> t));
+//
+//
+//
+//        // Collect all unique URLs
+//        Set<String> allUrls = new HashSet<>();
+//        for (Term termEntry : termCache.values()) {
+//            for (DocumentTermInfo dti : termEntry.getDocuments()) {
+//                allUrls.add(dti.getUrl());
+//            }
+//        }
+
+
+//        List<WebDocument> allDocuments = documentRepository.findByUrlIn(new ArrayList<>(allUrls));
+//
+//        Map<String, WebDocument> documentMap = allDocuments.stream()
+//                .collect(Collectors.toMap(WebDocument::getUrl, doc -> doc));
+//        Map<String, Integer> wordCountMap = allDocuments.stream()
+//                .collect(Collectors.toMap(WebDocument::getUrl, WebDocument::getWordCount));
+//
+//
+//
+//        Map<String, Double> documentScore = new HashMap<>();
+//        long documentCount = documentRepository.count();
+//
+//
+//        for (String term : terms) {
+//            Term termEntry = termCache.get(term);
+//            if (termEntry == null) continue;
+//            int df = termEntry.getDf();
+//            if (df == 0) continue;
+//            double idf = Math.log((double) documentCount / df);
+//            for (DocumentTermInfo dti : termEntry.getDocuments()) {
+//                String url = dti.getUrl();
+//                if (!documentMap.containsKey(url)) continue;
+//                int docLength = wordCountMap.getOrDefault(url, 1);
+//                double tfTitle = dti.getTfTitle();
+//                double tfHeading = dti.getTfHeadings();
+//                double tfBody = dti.getTfBody();
+//                double tf = (TITLE_WEIGHT * tfTitle + HEADING_WEIGHT * tfHeading + BODY_WEIGHT * tfBody) / (docLength + 1.0);
+//                double tfIdf = tf * idf;
+//                documentScore.put(url, documentScore.getOrDefault(url, 0.0) + tfIdf);
+//            }
+//        }
+//
+//
+//
+//
+//        Map<String, Double> finalScores = ranker.calculatePageRank(documentScore);
+//
+//
+//        List<String> top10Urls = finalScores.entrySet().stream()
+//                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+//                .limit(10)
+//                .map(Map.Entry::getKey)
+//                .toList();
+//
+//        System.out.println("Top 10 URLs: " + top10Urls);
+//
+//
+//        // Get topK URLs
+//        List<String> topUrls = finalScores.entrySet().stream()
+//                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+//                .limit(topK)
+//                .map(Map.Entry::getKey)
+//                .toList();
+//
+//
+//
+//
+//        return topUrls.stream()
+//                .map(documentMap::get)
+//                .filter(Objects::nonNull)
+//                .collect(Collectors.toList());
 
     }
 

@@ -33,6 +33,15 @@ public class Ranker {
                         WebDocument::getPopularity,
                         (existing, replacement) -> existing));
 
+        //get the top 10 docums on score
+        List<String> top10Urls = documentScore.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(10)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        System.out.println("Top 10 URLs: " + top10Urls);
+
         // Calculate final scores using the popularity map
         return documentScore.entrySet().stream()
                 .collect(Collectors.toMap(

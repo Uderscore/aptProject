@@ -16,10 +16,21 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.beans.factory.annotation.Qualifier;
+import ranker.rankers.Ranker;
 
 import java.time.Duration;
 import java.util.HashMap;
+
 import java.util.Map;
+
+@Configuration
+public class AppConfig implements CachingConfigurer {
+
+    @Bean
+    public Ranker oldRanker() {
+        return new Ranker();
+    }
+}
 
 //@Configuration
 //public class AppConfig implements CachingConfigurer {
