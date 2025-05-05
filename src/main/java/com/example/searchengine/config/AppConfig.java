@@ -1,5 +1,6 @@
 package com.example.searchengine.config;
 
+import com.example.searchengine.repository.DocumentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,8 +28,8 @@ import java.util.Map;
 public class AppConfig implements CachingConfigurer {
 
     @Bean
-    public Ranker oldRanker() {
-        return new Ranker();
+    public Ranker oldRanker(DocumentRepository documentRepository) {
+        return new Ranker(documentRepository);
     }
 }
 
